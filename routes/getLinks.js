@@ -39,7 +39,7 @@ class Recaptcha {
             throw new Error("VToken Error")
         }
     }
-    
+
     async getRecaptchaToken() {
         try {
             const reloadLink = `https://www.google.com/recaptcha/api2/reload?k=${this.RecaptchaKey}`
@@ -48,7 +48,7 @@ class Recaptcha {
             let tokenRequest = (await this.client.get(properLink)).data
             let longToken = cheerio.load(tokenRequest)('#recaptcha-token').attr('value')
             let finalRequest = await this.client.post(reloadLink, `v=${this.vToken}&k=${this.RecaptchaKey}&c=${longToken}&co=${properDomain}&sa=&reason=q`, {
-                headers: { 
+                headers: {
                     'Cache-Control': 'no-cache',
                     'Pragma': 'no-cache',
                     'Expires': '0',
@@ -67,10 +67,10 @@ class Recaptcha {
             //         "Referer": this.watchURL
             //     } 
             // })
-            let info = await this.client.get(`${DOMAIN}/ajax/sources/${this.serverId}`, { 
-                headers: { 
+            let info = await this.client.get(`${DOMAIN}/ajax/sources/${this.serverId}`, {
+                headers: {
                     "Referer": this.watchURL
-                } 
+                }
             })
             let URL = info.data.link // e.x https://mzzcloud.life/embed-4/25kKV67FpxEH?z=
             // let resp =  (await this.client.get(URL, { 
@@ -80,10 +80,11 @@ class Recaptcha {
             // })).data
             // Setup needed variables for getting sources
             // this.RecaptchaNumber = new RegExp(/recaptchaNumber = '(.*?)'/gm).exec(resp)[1],
+            this.URL = URL
             this.iframeURL = URL.substring(0, URL.lastIndexOf('/'))
             this.iframeId = URL.substring(URL.lastIndexOf('/') + 1, URL.lastIndexOf('?'))
         } catch (e) {
-            throw new Error("iframeInfo Error")
+            // throw new Error("iframeInfo Error")
         }
     }
 }
@@ -109,15 +110,15 @@ const decryptSource = async (encryptedSource) => {
     */
 
     let result = null;
-    
+
     const keyUrls = { // Links for getting the key
         Dokicloud: 'https://raw.githubusercontent.com/enimax-anime/key/e4/key.txt',
         Main: 'https://raw.githubusercontent.com/enimax-anime/key/e6/key.txt',
         Rabbitstream: 'https://raw.githubusercontent.com/enimax-anime/key/e0/key.txt'
     }
-    
+
     for (let [provider, key] of Object.entries(keyUrls)) {
-        try { 
+        try {
             let encryptedSourceTemp = encryptedSource.split("");
             let actualDecryptionKey = "";
             // First grab the key then assign it into some variable
@@ -131,11 +132,11 @@ const decryptSource = async (encryptedSource) => {
             let encryptedURL = encryptedSourceTemp.filter((x) => x !== null).join("");
             result = JSON.parse(CryptoJS.AES.decrypt(encryptedURL, actualDecryptionKey).toString(CryptoJS.enc.Utf8));
             if (result) break;
-        } catch(e) {
+        } catch (e) {
             console.log(`${provider} key failed to decrypt source, trying next one(?)`)
         }
     }
-    
+
     return result;
 
 
@@ -155,7 +156,8 @@ router.get('/:serverId', async (req, res) => {
         await test.iframeInfo();
         // END
         // const properURL = (test.iframeURL.replace('/embed', '/ajax/embed')) + `/getSources?id=${test.iframeId}&_token=${test.RecaptchaToken}&_number=${test.RecaptchaNumber}`
-        const properURL = (test.iframeURL.replace('/embed', '/ajax/embed')) + `/getSources?id=${test.iframeId}`
+        // const properURL = (test.iframeURL.replace('/embed', '/ajax/embed')) + `/getSources?id=${test.iframeId}`
+        const properURL = test.URL
         const result = (await test.client.get(properURL, {
             headers: {
                 "Referer": DOMAIN,
@@ -168,10 +170,13 @@ router.get('/:serverId', async (req, res) => {
         })).data
         // Assign the decrypted data into the original result
         result.sources = await decryptSource(result.sources)
-        res.json(result)
+        res.json({
+            "Referer": DOMAIN,
+            "StreamURL": test.URL
+        })
     } catch (e) {
         res.send(e)
-        throw Error(e)
+        // throw Error(e)
     }
 })
 
